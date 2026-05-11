@@ -2,21 +2,50 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [role, setRole] = useState<string>("");
+  const [name, setName] = useState<string>("");
 
-  const links = [
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/tickets", label: "All Tickets" },
-    { href: "/tickets/my", label: "My Tickets" },
+  useEffect(() => {
+    const cookies = document.cookie.split("; ").reduce((acc, c) => {
+      const [k, v] = c.split("=");
+      acc[k] = v;
+      return acc;
+    }, {} as Record<string, string>);
+
+    setRole(cookies["user_role"] ?? "");
+    setName(decodeURIComponent(cookies["user_name"] ?? ""));
+  }, []);
+
+  const allLinks = [
+    { href: "/dashboard", label: "Dashboard", roles: ["EMPLOYEE", "IT_STAFF", "IT_MANAGER"] },
+    { href: "/tickets", label: "All Tickets", roles: ["IT_MANAGER"] },
+    { href: "/tickets/my", label: "My Tickets", roles: ["EMPLOYEE"] },
+    { href: "/tickets/assigned", label: "Assigned Tickets", roles: ["IT_STAFF"] },
   ];
+
+  const visibleLinks = allLinks.filter((l) => l.roles.includes(role));
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
   }
+
+  const roleBadgeStyles: Record<string, string> = {
+    EMPLOYEE: "bg-gray-100 text-gray-500",
+    IT_STAFF: "bg-[#EEF0FF] text-[#3D2DB5]",
+    IT_MANAGER: "bg-[#FDECEA] text-[#B03020]",
+  };
+
+  const roleLabels: Record<string, string> = {
+    EMPLOYEE: "Employee",
+    IT_STAFF: "IT Staff",
+    IT_MANAGER: "IT Manager",
+  };
 
   return (
     <nav className="bg-white border-b border-gray-100 px-6 h-14 flex items-center justify-between sticky top-0 z-50">
@@ -36,7 +65,7 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-1 ml-2">
-          {links.map((link) => (
+          {visibleLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
@@ -53,12 +82,30 @@ export default function Navbar() {
       </div>
 
       <div className="flex items-center gap-3">
-        <Link
-          href="/tickets/new"
-          className="bg-[#3D2DB5] hover:bg-[#2E22A0] text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors"
-        >
-          + New Ticket
-        </Link>
+        {/* User info */}
+        {name && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">{name}</span>
+            {role && (
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${roleBadgeStyles[role] ?? "bg-gray-100 text-gray-500"}`}>
+                {roleLabels[role] ?? role}
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="w-px h-4 bg-gray-200" />
+
+        {/* New Ticket — EMPLOYEE lang */}
+        {role === "EMPLOYEE" && (
+          <Link
+            href="/tickets/new"
+            className="bg-[#3D2DB5] hover:bg-[#2E22A0] text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors"
+          >
+            + New Ticket
+          </Link>
+        )}
+
         <button
           onClick={handleLogout}
           className="text-xs text-gray-400 hover:text-red-500 transition-colors px-2 py-1"

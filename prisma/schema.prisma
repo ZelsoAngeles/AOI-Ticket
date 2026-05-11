@@ -12,11 +12,12 @@ model User {
   email     String   @unique
   name      String?
   password  String
-  role      String   @default("USER")
+  role      String   @default("EMPLOYEE")
   createdAt DateTime @default(now())
 
-  tickets  Ticket[]
-  comments Comment[]
+  createdTickets  Ticket[]  @relation("CreatedTickets")
+  assignedTickets Ticket[]  @relation("AssignedTickets")
+  comments        Comment[]
 }
 
 model Ticket {
@@ -29,8 +30,11 @@ model Ticket {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  createdById String
-  createdBy   User   @relation(fields: [createdById], references: [id])
+  createdById  String
+  createdBy    User    @relation("CreatedTickets", fields: [createdById], references: [id])
+
+  assignedToId String?
+  assignedTo   User?   @relation("AssignedTickets", fields: [assignedToId], references: [id])
 
   comments Comment[]
 }
