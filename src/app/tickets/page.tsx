@@ -2,7 +2,7 @@
 
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 
 type Ticket = {
@@ -35,10 +35,10 @@ export default function AllTicketsPage() {
   const router = useRouter();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({
-    status: "",
-    priority: "",
-  });
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"date" | "priority" | "status">("date");
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  const [filters, setFilters] = useState({ status: "", priority: "" });
 
   useEffect(() => {
     fetchTickets();
@@ -59,12 +59,51 @@ export default function AllTicketsPage() {
     }
   };
 
-  const filteredTickets = tickets.filter((ticket) => {
-    return (
-      (!filters.status || ticket.status === filters.status) &&
-      (!filters.priority || ticket.priority === filters.priority)
-    );
-  });
+  const filteredAndSortedTickets = useMemo(() => {
+    let result = [...tickets];
+
+    // Search
+    if (search) {
+      const term = search.toLowerCase();
+      result = result.filter(
+        (t) =>
+          t.title.toLowerCase().includes(term) ||
+          t.id.toLowerCase().includes(term) ||
+          t.createdBy?.name?.toLowerCase().includes(term)
+      );
+    }
+
+    // Filters
+    if (filters.status) {
+      result = result.filter((t) => t.status === filters.status);
+    }
+    if (filters.priority) {
+      result = result.filter((t) => t.priority === filters.priority);
+    }
+
+    // Sorting
+    result.sort((a, b) => {
+      if (sortBy === "date") {
+        return sortOrder === "desc"
+          ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      }
+      if (sortBy === "priority") {
+        const order = { URGENT: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+        return sortOrder === "desc"
+          ? (order[b.priority as keyof typeof order] || 0) - (order[a.priority as keyof typeof order] || 0)
+          : (order[a.priority as keyof typeof order] || 0) - (order[b.priority as keyof typeof order] || 0);
+      }
+      if (sortBy === "status") {
+        return sortOrder === "desc"
+          ? a.status.localeCompare(b.status)
+          : b.status.localeCompare(a.status);
+      }
+      return 0;
+    });
+
+    return result;
+  }, [tickets, search, filters, sortBy, sortOrder]);
 
   return (
     <div className="min-h-screen bg-[#F5F5F7]">
@@ -76,23 +115,31 @@ export default function AllTicketsPage() {
           <div>
             <h1 className="text-xl font-medium text-gray-900">All Tickets</h1>
             <p className="text-sm text-gray-500 mt-0.5">
-              Complete view of all tickets • IT Manager Access
+              {filteredAndSortedTickets.length} tickets • IT Manager View
             </p>
           </div>
           <button
             onClick={fetchTickets}
             className="bg-[#3D2DB5] hover:bg-[#2E22A0] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
           >
-            Refresh
+            ↻ Refresh
           </button>
         </div>
 
-        {/* Filters */}
+        {/* Search + Filters */}
         <div className="bg-white border border-gray-100 rounded-xl p-4 mb-6 flex flex-wrap gap-3 items-center">
+          <input
+            type="text"
+            placeholder="Search by title, ID, or submitter..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 min-w-[280px] border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#3D2DB5]"
+          />
+
           <select
             value={filters.status}
             onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            className="border border-gray-200 rounded-lg px-4 py-2 text-sm"
+            className="border border-gray-200 rounded-lg px-4 py-2.5 text-sm"
           >
             <option value="">All Status</option>
             <option value="OPEN">Open</option>
@@ -104,7 +151,7 @@ export default function AllTicketsPage() {
           <select
             value={filters.priority}
             onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
-            className="border border-gray-200 rounded-lg px-4 py-2 text-sm"
+            className="border border-gray-200 rounded-lg px-4 py-2.5 text-sm"
           >
             <option value="">All Priority</option>
             <option value="LOW">Low</option>
@@ -114,66 +161,87 @@ export default function AllTicketsPage() {
           </select>
 
           <button
-            onClick={() => setFilters({ status: "", priority: "" })}
-            className="text-sm text-gray-500 hover:text-gray-700"
+            onClick={() => {
+              setSearch("");
+              setFilters({ status: "", priority: "" });
+            }}
+            className="text-sm text-gray-500 hover:text-gray-700 px-3 py-2.5"
           >
-            Clear Filters
+            Clear
           </button>
         </div>
 
-        {/* Tickets Table */}
+        {/* Tickets List */}
         <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
           <div className="flex items-center px-4 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-400 uppercase tracking-wide">
-            <span className="flex-1">Title</span>
+            <span className="flex-1 cursor-pointer" onClick={() => {}}>Title</span>
             <span className="w-36">Submitted By</span>
             <span className="w-36">Assigned To</span>
-            <span className="w-28">Status</span>
-            <span className="w-24">Priority</span>
-            <span className="w-20">Date</span>
+            
+            <span 
+              className="w-28 cursor-pointer hover:text-gray-600" 
+              onClick={() => {
+                if (sortBy === "status") setSortOrder(sortOrder === "desc" ? "asc" : "desc");
+                else { setSortBy("status"); setSortOrder("desc"); }
+              }}
+            >
+              Status {sortBy === "status" && (sortOrder === "desc" ? "↓" : "↑")}
+            </span>
+
+            <span 
+              className="w-24 cursor-pointer hover:text-gray-600 ml-2" 
+              onClick={() => {
+                if (sortBy === "priority") setSortOrder(sortOrder === "desc" ? "asc" : "desc");
+                else { setSortBy("priority"); setSortOrder("desc"); }
+              }}
+            >
+              Priority {sortBy === "priority" && (sortOrder === "desc" ? "↓" : "↑")}
+            </span>
+
+            <span 
+              className="w-20 cursor-pointer hover:text-gray-600" 
+              onClick={() => {
+                if (sortBy === "date") setSortOrder(sortOrder === "desc" ? "asc" : "desc");
+                else { setSortBy("date"); setSortOrder("desc"); }
+              }}
+            >
+              Date {sortBy === "date" && (sortOrder === "desc" ? "↓" : "↑")}
+            </span>
             <span className="w-16"></span>
           </div>
 
           {loading ? (
+            <div className="text-center py-20 text-gray-400">Loading tickets...</div>
+          ) : filteredAndSortedTickets.length === 0 ? (
             <div className="text-center py-20">
-              <p className="text-gray-400">Loading tickets...</p>
-            </div>
-          ) : filteredTickets.length === 0 ? (
-            <div className="text-center py-20">
-              <p className="text-gray-400">No tickets found.</p>
+              <p className="text-4xl mb-4">🔍</p>
+              <p className="text-xl font-medium text-gray-600">No tickets found</p>
+              <p className="text-gray-500 mt-2">Try changing your search or filters</p>
             </div>
           ) : (
-            filteredTickets.map((ticket) => (
+            filteredAndSortedTickets.map((ticket) => (
               <div
                 key={ticket.id}
                 onClick={() => router.push(`/tickets/${ticket.id}`)}
-                className="flex items-center px-4 py-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors last:border-0"
+                className="flex items-center px-4 py-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-all last:border-0"
               >
-                <span className="flex-1 text-sm font-medium text-gray-800 pr-4">
+                <span className="flex-1 text-sm font-medium text-gray-800 pr-4 line-clamp-1">
                   {ticket.title}
                 </span>
-                <span className="w-36 text-sm text-gray-500">
+                <span className="w-36 text-sm text-gray-500 truncate">
                   {ticket.createdBy?.name || "—"}
                 </span>
-                <span className="w-36 text-sm text-gray-500">
-                  {ticket.assignedTo?.name || (
-                    <span className="italic text-gray-300">Unassigned</span>
-                  )}
+                <span className="w-36 text-sm text-gray-500 truncate">
+                  {ticket.assignedTo?.name || <span className="italic text-gray-300">Unassigned</span>}
                 </span>
-                <span
-                  className={`text-xs font-medium px-3 py-1 rounded-full w-28 text-center ${statusStyles[ticket.status]}`}
-                >
+                <span className={`text-xs font-medium px-3 py-1 rounded-full w-28 text-center ${statusStyles[ticket.status]}`}>
                   {ticket.status}
                 </span>
-                <span
-                  className={`text-xs font-medium px-3 py-1 rounded-full w-24 text-center ml-2 ${priorityStyles[ticket.priority]}`}
-                >
+                <span className={`text-xs font-medium px-3 py-1 rounded-full w-24 text-center ml-2 ${priorityStyles[ticket.priority]}`}>
                   {ticket.priority}
                 </span>
                 <span className="text-xs text-gray-400 w-20">
-                  {new Date(ticket.createdAt).toLocaleDateString("en-PH", {
-                    month: "short",
-                    day: "numeric",
-                  })}
+                  {new Date(ticket.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}
                 </span>
                 <span className="w-16 text-[#3D2DB5] text-sm font-medium">View →</span>
               </div>

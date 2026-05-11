@@ -2,7 +2,8 @@
 
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 
 type Ticket = {
   id: string;
@@ -11,7 +12,7 @@ type Ticket = {
   priority: string;
   category: string;
   createdAt: string;
-  createdBy: { name: string; email: string };
+  createdBy: { name: string | null; email?: string };
 };
 
 const statusStyles: Record<string, string> = {
@@ -19,13 +20,6 @@ const statusStyles: Record<string, string> = {
   IN_PROGRESS: "bg-[#FFF8E6] text-[#B07D00]",
   RESOLVED: "bg-[#EAFAF1] text-[#1A7A4A]",
   CLOSED: "bg-gray-100 text-gray-500",
-};
-
-const statusLabels: Record<string, string> = {
-  OPEN: "Open",
-  IN_PROGRESS: "In Progress",
-  RESOLVED: "Resolved",
-  CLOSED: "Closed",
 };
 
 const priorityStyles: Record<string, string> = {
@@ -36,18 +30,75 @@ const priorityStyles: Record<string, string> = {
 };
 
 export default function AssignedTicketsPage() {
+  const router = useRouter();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"date" | "priority" | "status">("date");
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
-    fetch("/api/tickets")
-      .then((r) => r.json())
-      .then((data) => {
-        setTickets(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    fetchTickets();
   }, []);
+
+  const fetchTickets = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/tickets");
+      if (res.ok) {
+        const data = await res.json();
+        setTickets(Array.isArray(data) ? data : []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch tickets", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredAndSortedTickets = useMemo(() => {
+    let result = [...tickets];
+
+    // Search
+    if (search) {
+      const term = search.toLowerCase();
+      result = result.filter(
+        (t) =>
+          t.title.toLowerCase().includes(term) ||
+          t.id.toLowerCase().includes(term) ||
+          t.createdBy?.name?.toLowerCase().includes(term)
+      );
+    }
+
+    // Status Filter
+    if (statusFilter) {
+      result = result.filter((t) => t.status === statusFilter);
+    }
+
+    // Sorting
+    result.sort((a, b) => {
+      if (sortBy === "date") {
+        return sortOrder === "desc"
+          ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      }
+      if (sortBy === "priority") {
+        const order = { URGENT: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+        return sortOrder === "desc"
+          ? (order[b.priority as keyof typeof order] || 0) - (order[a.priority as keyof typeof order] || 0)
+          : (order[a.priority as keyof typeof order] || 0) - (order[b.priority as keyof typeof order] || 0);
+      }
+      if (sortBy === "status") {
+        return sortOrder === "desc"
+          ? a.status.localeCompare(b.status)
+          : b.status.localeCompare(a.status);
+      }
+      return 0;
+    });
+
+    return result;
+  }, [tickets, search, statusFilter, sortBy, sortOrder]);
 
   return (
     <div className="min-h-screen bg-[#F5F5F7]">
@@ -56,49 +107,107 @@ export default function AssignedTicketsPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-xl font-medium text-gray-900">Assigned Tickets</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Tickets assigned to you for resolution</p>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {filteredAndSortedTickets.length} tickets assigned to you
+            </p>
           </div>
+          <button
+            onClick={fetchTickets}
+            className="bg-[#3D2DB5] hover:bg-[#2E22A0] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            ↻ Refresh
+          </button>
         </div>
 
+        {/* Search & Filter */}
+        <div className="bg-white border border-gray-100 rounded-xl p-4 mb-6 flex flex-wrap gap-3 items-center">
+          <input
+            type="text"
+            placeholder="Search assigned tickets..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 min-w-[280px] border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#3D2DB5]"
+          />
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="border border-gray-200 rounded-lg px-4 py-2.5 text-sm"
+          >
+            <option value="">All Status</option>
+            <option value="OPEN">Open</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="RESOLVED">Resolved</option>
+            <option value="CLOSED">Closed</option>
+          </select>
+
+          <button
+            onClick={() => { setSearch(""); setStatusFilter(""); }}
+            className="text-sm text-gray-500 hover:text-gray-700 px-3 py-2.5"
+          >
+            Clear
+          </button>
+        </div>
+
+        {/* Tickets List */}
         <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-          <div className="flex items-center px-4 py-2.5 bg-gray-50 border-b border-gray-100">
-            <span className="flex-1 text-xs font-medium text-gray-400 uppercase tracking-wide">Title</span>
-            <span className="text-xs font-medium text-gray-400 uppercase tracking-wide w-28 mr-3">Submitted By</span>
-            <span className="text-xs font-medium text-gray-400 uppercase tracking-wide w-24">Status</span>
-            <span className="text-xs font-medium text-gray-400 uppercase tracking-wide w-20 ml-3">Priority</span>
-            <span className="text-xs font-medium text-gray-400 uppercase tracking-wide w-16 ml-3">Date</span>
+          <div className="flex items-center px-4 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-400 uppercase tracking-wide">
+            <span className="flex-1">Title</span>
+            <span className="w-36">Submitted By</span>
+            
+            <span 
+              className="w-28 cursor-pointer hover:text-gray-600" 
+              onClick={() => { sortBy === "status" ? setSortOrder(sortOrder === "desc" ? "asc" : "desc") : (setSortBy("status"), setSortOrder("desc")); }}
+            >
+              Status {sortBy === "status" && (sortOrder === "desc" ? "↓" : "↑")}
+            </span>
+            
+            <span 
+              className="w-24 cursor-pointer hover:text-gray-600 ml-2" 
+              onClick={() => { sortBy === "priority" ? setSortOrder(sortOrder === "desc" ? "asc" : "desc") : (setSortBy("priority"), setSortOrder("desc")); }}
+            >
+              Priority {sortBy === "priority" && (sortOrder === "desc" ? "↓" : "↑")}
+            </span>
+            
+            <span 
+              className="w-20 cursor-pointer hover:text-gray-600" 
+              onClick={() => { sortBy === "date" ? setSortOrder(sortOrder === "desc" ? "asc" : "desc") : (setSortBy("date"), setSortOrder("desc")); }}
+            >
+              Date {sortBy === "date" && (sortOrder === "desc" ? "↓" : "↑")}
+            </span>
           </div>
 
           {loading ? (
-            <div className="text-center py-16">
-              <p className="text-sm text-gray-400">Loading tickets...</p>
-            </div>
-          ) : tickets.length === 0 ? (
-            <div className="text-center py-16">
-              <p className="text-2xl mb-2">📋</p>
-              <p className="text-sm text-gray-400">No tickets assigned to you yet.</p>
+            <div className="text-center py-20 text-gray-400">Loading assigned tickets...</div>
+          ) : filteredAndSortedTickets.length === 0 ? (
+            <div className="text-center py-20">
+              <p className="text-4xl mb-4">📋</p>
+              <p className="text-xl font-medium text-gray-600">No assigned tickets yet</p>
+              <p className="text-gray-500 mt-2">Tickets assigned to you will appear here</p>
             </div>
           ) : (
-            tickets.map((ticket) => (
-              <Link
+            filteredAndSortedTickets.map((ticket) => (
+              <div
                 key={ticket.id}
-                href={`/tickets/${ticket.id}`}
-                className="flex items-center px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors last:border-0"
+                onClick={() => router.push(`/tickets/${ticket.id}`)}
+                className="flex items-center px-4 py-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-all last:border-0"
               >
-                <span className="flex-1 text-sm text-gray-800 font-medium pr-4">{ticket.title}</span>
-                <span className="text-xs text-gray-500 w-28 mr-3 truncate">
-                  {ticket.createdBy?.name ?? ticket.createdBy?.email}
+                <span className="flex-1 text-sm font-medium text-gray-800 pr-4 line-clamp-1">
+                  {ticket.title}
                 </span>
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full w-24 text-center ${statusStyles[ticket.status]}`}>
-                  {statusLabels[ticket.status]}
+                <span className="w-36 text-sm text-gray-500 truncate">
+                  {ticket.createdBy?.name || "—"}
                 </span>
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full w-20 text-center ml-3 ${priorityStyles[ticket.priority]}`}>
+                <span className={`text-xs font-medium px-3 py-1 rounded-full w-28 text-center ${statusStyles[ticket.status]}`}>
+                  {ticket.status}
+                </span>
+                <span className={`text-xs font-medium px-3 py-1 rounded-full w-24 text-center ml-2 ${priorityStyles[ticket.priority]}`}>
                   {ticket.priority}
                 </span>
-                <span className="text-xs text-gray-400 w-16 ml-3">
+                <span className="text-xs text-gray-400 w-20">
                   {new Date(ticket.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}
                 </span>
-              </Link>
+              </div>
             ))
           )}
         </div>
