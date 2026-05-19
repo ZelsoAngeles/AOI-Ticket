@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Navbar from '@/components/Navbar';
 import ToastContainer from '@/components/Toast';
 import "./globals.css";
 
@@ -16,9 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "AOI Ticketing System",
   description: "Internal Ticketing System for Alpha Orion Inc.",
-  icons: {
-    icon: "/favicon.ico",
-  },
+  icons: { icon: "/favicon.ico" },
 };
 
 export default function RootLayout({
@@ -27,12 +26,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-[#F5F5F7]">
-        {children}
+        <Navbar />
+        <main className="flex-1">
+          {children}
+        </main>
         <ToastContainer />
       </body>
     </html>

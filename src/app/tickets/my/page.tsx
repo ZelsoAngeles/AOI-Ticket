@@ -1,6 +1,7 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
+import { toast } from "@/components/Toast";
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -48,9 +49,11 @@ export default function MyTicketsPage() {
       if (res.ok) {
         const data = await res.json();
         setTickets(Array.isArray(data) ? data : []);
+      } else {
+        toast.error("Failed to load your tickets. Please try again.");
       }
-    } catch (error) {
-      console.error("Failed to fetch tickets", error);
+    } catch {
+      toast.error("Network error. Could not fetch tickets.");
     } finally {
       setLoading(false);
     }
@@ -59,18 +62,13 @@ export default function MyTicketsPage() {
   const filteredAndSortedTickets = useMemo(() => {
     let result = [...tickets];
 
-    // Search
     if (search) {
       const term = search.toLowerCase();
       result = result.filter((t) => t.title.toLowerCase().includes(term) || t.id.toLowerCase().includes(term));
     }
 
-    // Status Filter
-    if (statusFilter) {
-      result = result.filter((t) => t.status === statusFilter);
-    }
+    if (statusFilter) result = result.filter((t) => t.status === statusFilter);
 
-    // Sorting
     result.sort((a, b) => {
       if (sortBy === "date") {
         return sortOrder === "desc"
@@ -96,7 +94,6 @@ export default function MyTicketsPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F7]">
-      <Navbar />
       <main className="max-w-6xl mx-auto px-6 py-6">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -107,22 +104,20 @@ export default function MyTicketsPage() {
           </div>
           <Link
             href="/tickets/new"
-            className="bg-[#3D2DB5] hover:bg-[#2E22A0] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            className="bg-[rgb(61,45,181)] hover:bg-[#2E22A0] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
           >
             + New Ticket
           </Link>
         </div>
 
-        {/* Search & Filter */}
         <div className="bg-white border border-gray-100 rounded-xl p-4 mb-6 flex flex-wrap gap-3 items-center">
           <input
             type="text"
             placeholder="Search your tickets..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 min-w-[280px] border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#3D2DB5]"
+            className="flex-1 min-w-70 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[rgb(61,45,181)]"
           />
-
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -134,7 +129,6 @@ export default function MyTicketsPage() {
             <option value="RESOLVED">Resolved</option>
             <option value="CLOSED">Closed</option>
           </select>
-
           <button
             onClick={() => { setSearch(""); setStatusFilter(""); }}
             className="text-sm text-gray-500 hover:text-gray-700 px-3 py-2.5"
@@ -143,20 +137,25 @@ export default function MyTicketsPage() {
           </button>
         </div>
 
-        {/* Tickets List */}
         <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
           <div className="flex items-center px-4 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-400 uppercase tracking-wide">
             <span className="flex-1">Title</span>
-            <span className="w-28 cursor-pointer hover:text-gray-600" 
-                  onClick={() => { sortBy === "status" ? setSortOrder(sortOrder === "desc" ? "asc" : "desc") : (setSortBy("status"), setSortOrder("desc")); }}>
+            <span
+              className="w-28 cursor-pointer hover:text-gray-600"
+              onClick={() => { sortBy === "status" ? setSortOrder(sortOrder === "desc" ? "asc" : "desc") : (setSortBy("status"), setSortOrder("desc")); }}
+            >
               Status {sortBy === "status" && (sortOrder === "desc" ? "↓" : "↑")}
             </span>
-            <span className="w-24 cursor-pointer hover:text-gray-600 ml-2" 
-                  onClick={() => { sortBy === "priority" ? setSortOrder(sortOrder === "desc" ? "asc" : "desc") : (setSortBy("priority"), setSortOrder("desc")); }}>
+            <span
+              className="w-24 cursor-pointer hover:text-gray-600 ml-2"
+              onClick={() => { sortBy === "priority" ? setSortOrder(sortOrder === "desc" ? "asc" : "desc") : (setSortBy("priority"), setSortOrder("desc")); }}
+            >
               Priority {sortBy === "priority" && (sortOrder === "desc" ? "↓" : "↑")}
             </span>
-            <span className="w-20 cursor-pointer hover:text-gray-600" 
-                  onClick={() => { sortBy === "date" ? setSortOrder(sortOrder === "desc" ? "asc" : "desc") : (setSortBy("date"), setSortOrder("desc")); }}>
+            <span
+              className="w-20 cursor-pointer hover:text-gray-600"
+              onClick={() => { sortBy === "date" ? setSortOrder(sortOrder === "desc" ? "asc" : "desc") : (setSortBy("date"), setSortOrder("desc")); }}
+            >
               Date {sortBy === "date" && (sortOrder === "desc" ? "↓" : "↑")}
             </span>
           </div>
@@ -168,7 +167,7 @@ export default function MyTicketsPage() {
               <p className="text-4xl mb-4">📭</p>
               <p className="text-xl font-medium text-gray-600">No tickets found</p>
               <p className="text-gray-500 mt-2">Try changing your search or filter</p>
-              <Link href="/tickets/new" className="text-[#3D2DB5] hover:underline mt-4 inline-block">
+              <Link href="/tickets/new" className="text-[rgb(61,45,181)] hover:underline mt-4 inline-block">
                 Create your first ticket →
               </Link>
             </div>

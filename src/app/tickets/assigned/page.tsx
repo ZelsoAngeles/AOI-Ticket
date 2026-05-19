@@ -1,6 +1,7 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
+import { toast } from "@/components/Toast";
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -49,9 +50,11 @@ export default function AssignedTicketsPage() {
       if (res.ok) {
         const data = await res.json();
         setTickets(Array.isArray(data) ? data : []);
+      } else {
+        toast.error("Failed to load assigned tickets. Please try again.");
       }
-    } catch (error) {
-      console.error("Failed to fetch tickets", error);
+    } catch {
+      toast.error("Network error. Could not fetch tickets.");
     } finally {
       setLoading(false);
     }
@@ -60,7 +63,6 @@ export default function AssignedTicketsPage() {
   const filteredAndSortedTickets = useMemo(() => {
     let result = [...tickets];
 
-    // Search
     if (search) {
       const term = search.toLowerCase();
       result = result.filter(
@@ -71,12 +73,8 @@ export default function AssignedTicketsPage() {
       );
     }
 
-    // Status Filter
-    if (statusFilter) {
-      result = result.filter((t) => t.status === statusFilter);
-    }
+    if (statusFilter) result = result.filter((t) => t.status === statusFilter);
 
-    // Sorting
     result.sort((a, b) => {
       if (sortBy === "date") {
         return sortOrder === "desc"
@@ -102,7 +100,6 @@ export default function AssignedTicketsPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F7]">
-      <Navbar />
       <main className="max-w-6xl mx-auto px-6 py-6">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -119,7 +116,6 @@ export default function AssignedTicketsPage() {
           </button>
         </div>
 
-        {/* Search & Filter */}
         <div className="bg-white border border-gray-100 rounded-xl p-4 mb-6 flex flex-wrap gap-3 items-center">
           <input
             type="text"
@@ -128,7 +124,6 @@ export default function AssignedTicketsPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1 min-w-[280px] border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#3D2DB5]"
           />
-
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -140,7 +135,6 @@ export default function AssignedTicketsPage() {
             <option value="RESOLVED">Resolved</option>
             <option value="CLOSED">Closed</option>
           </select>
-
           <button
             onClick={() => { setSearch(""); setStatusFilter(""); }}
             className="text-sm text-gray-500 hover:text-gray-700 px-3 py-2.5"
@@ -149,28 +143,24 @@ export default function AssignedTicketsPage() {
           </button>
         </div>
 
-        {/* Tickets List */}
         <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
           <div className="flex items-center px-4 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-400 uppercase tracking-wide">
             <span className="flex-1">Title</span>
             <span className="w-36">Submitted By</span>
-            
-            <span 
-              className="w-28 cursor-pointer hover:text-gray-600" 
+            <span
+              className="w-28 cursor-pointer hover:text-gray-600"
               onClick={() => { sortBy === "status" ? setSortOrder(sortOrder === "desc" ? "asc" : "desc") : (setSortBy("status"), setSortOrder("desc")); }}
             >
               Status {sortBy === "status" && (sortOrder === "desc" ? "↓" : "↑")}
             </span>
-            
-            <span 
-              className="w-24 cursor-pointer hover:text-gray-600 ml-2" 
+            <span
+              className="w-24 cursor-pointer hover:text-gray-600 ml-2"
               onClick={() => { sortBy === "priority" ? setSortOrder(sortOrder === "desc" ? "asc" : "desc") : (setSortBy("priority"), setSortOrder("desc")); }}
             >
               Priority {sortBy === "priority" && (sortOrder === "desc" ? "↓" : "↑")}
             </span>
-            
-            <span 
-              className="w-20 cursor-pointer hover:text-gray-600" 
+            <span
+              className="w-20 cursor-pointer hover:text-gray-600"
               onClick={() => { sortBy === "date" ? setSortOrder(sortOrder === "desc" ? "asc" : "desc") : (setSortBy("date"), setSortOrder("desc")); }}
             >
               Date {sortBy === "date" && (sortOrder === "desc" ? "↓" : "↑")}
@@ -192,12 +182,8 @@ export default function AssignedTicketsPage() {
                 onClick={() => router.push(`/tickets/${ticket.id}`)}
                 className="flex items-center px-4 py-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-all last:border-0"
               >
-                <span className="flex-1 text-sm font-medium text-gray-800 pr-4 line-clamp-1">
-                  {ticket.title}
-                </span>
-                <span className="w-36 text-sm text-gray-500 truncate">
-                  {ticket.createdBy?.name || "—"}
-                </span>
+                <span className="flex-1 text-sm font-medium text-gray-800 pr-4 line-clamp-1">{ticket.title}</span>
+                <span className="w-36 text-sm text-gray-500 truncate">{ticket.createdBy?.name || "—"}</span>
                 <span className={`text-xs font-medium px-3 py-1 rounded-full w-28 text-center ${statusStyles[ticket.status]}`}>
                   {ticket.status}
                 </span>

@@ -1,6 +1,7 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
+import { toast } from "@/components/Toast";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -16,31 +17,41 @@ export default function NewTicketPage() {
   async function handleSubmit() {
     if (!title.trim() || !description.trim()) {
       setError("Title and description are required.");
+      toast.error("Title and description are required.");
       return;
     }
     setLoading(true);
     setError("");
 
-    const res = await fetch("/api/tickets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, description, priority, category }),
-    });
+    try {
+      const res = await fetch("/api/tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, description, priority, category }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) {
-      setError(data.error ?? "Something went wrong.");
+      if (!res.ok) {
+        const errMsg = data.error ?? "Something went wrong.";
+        setError(errMsg);
+        toast.error(errMsg);
+        setLoading(false);
+        return;
+      }
+
+      toast.success("Ticket submitted successfully!");
+      router.push("/tickets");
+    } catch {
+      const errMsg = "Network error. Please try again.";
+      setError(errMsg);
+      toast.error(errMsg);
       setLoading(false);
-      return;
     }
-
-    router.push("/tickets");
   }
 
   return (
     <div className="min-h-screen bg-[#F5F5F7]">
-      <Navbar />
       <main className="max-w-2xl mx-auto px-6 py-6">
         <div className="mb-6">
           <h1 className="text-xl font-medium text-gray-900">Create New Ticket</h1>
@@ -57,14 +68,14 @@ export default function NewTicketPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-xs text-gray-500 mb-1.5 tracking-wide">
-                Title <span className="text-[#D63B5A]">*</span>
+                Title <span className="text-[rgb(214,61,92)]">*</span>
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Brief description of the issue"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#3D2DB5]/20 focus:border-[#3D2DB5] bg-gray-50 text-gray-900"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-[rgb(61,45,181)] bg-gray-50 text-gray-900"
               />
             </div>
 
@@ -74,7 +85,7 @@ export default function NewTicketPage() {
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#3D2DB5]/20 focus:border-[#3D2DB5] bg-gray-50 text-gray-900"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-[rgb(61,45,181)] bg-gray-50 text-gray-900"
                 >
                   <option>IT Support</option>
                   <option>Hardware</option>
@@ -89,7 +100,7 @@ export default function NewTicketPage() {
                 <select
                   value={priority}
                   onChange={(e) => setPriority(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#3D2DB5]/20 focus:border-[#3D2DB5] bg-gray-50 text-gray-900"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-[rgb(61,45,181)] bg-gray-50 text-gray-900"
                 >
                   <option value="LOW">Low</option>
                   <option value="MEDIUM">Medium</option>
@@ -101,14 +112,14 @@ export default function NewTicketPage() {
 
             <div>
               <label className="block text-xs text-gray-500 mb-1.5 tracking-wide">
-                Description <span className="text-[#D63B5A]">*</span>
+                Description <span className="text-[rgb(214,59,90)]">*</span>
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Detailed explanation of the issue — include steps to reproduce, error messages, etc."
                 rows={5}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#3D2DB5]/20 focus:border-[#3D2DB5] bg-gray-50 text-gray-900 resize-none"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-[rgb(61,45,181)] bg-gray-50 text-gray-900 resize-none"
               />
             </div>
 
@@ -116,7 +127,7 @@ export default function NewTicketPage() {
               <button
                 onClick={handleSubmit}
                 disabled={loading}
-                className="bg-[#3D2DB5] hover:bg-[#2E22A0] text-white text-sm font-medium px-5 py-2.5 rounded-lg disabled:opacity-50 transition-colors"
+                className="bg-[rgb(61,45,181)] hover:bg-[#2E22A0] text-white text-sm font-medium px-5 py-2.5 rounded-lg disabled:opacity-50 transition-colors"
               >
                 {loading ? "Submitting..." : "Submit Ticket"}
               </button>

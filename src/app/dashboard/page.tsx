@@ -1,6 +1,7 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
+import { toast } from "@/components/Toast";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -58,12 +59,18 @@ export default function DashboardPage() {
     setName(userName);
 
     fetch("/api/tickets")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to fetch");
+        return r.json();
+      })
       .then((data) => {
         setTickets(Array.isArray(data) ? data : []);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        toast.error("Failed to load dashboard tickets.");
+        setLoading(false);
+      });
   }, []);
 
   const stats = [
@@ -75,7 +82,6 @@ export default function DashboardPage() {
 
   const recent = tickets.slice(0, 5);
 
-  // Role-based headline
   const headlines: Record<string, { title: string; subtitle: string }> = {
     EMPLOYEE: {
       title: "My Dashboard",
@@ -93,7 +99,6 @@ export default function DashboardPage() {
 
   const headline = headlines[role] ?? { title: "Dashboard", subtitle: "Welcome." };
 
-  // "View all" link per role
   const viewAllHref =
     role === "IT_STAFF" ? "/tickets/assigned" :
     role === "IT_MANAGER" ? "/tickets" :
@@ -101,15 +106,12 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F7]">
-      <Navbar />
       <main className="max-w-6xl mx-auto px-6 py-6">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-xl font-medium text-gray-900">
-              {headline.title}
-            </h1>
+            <h1 className="text-xl font-medium text-gray-900">{headline.title}</h1>
             <p className="text-sm text-gray-500 mt-0.5">
               {name ? `Welcome back, ${name} — ` : ""}{headline.subtitle}
             </p>

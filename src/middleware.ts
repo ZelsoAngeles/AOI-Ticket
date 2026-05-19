@@ -5,9 +5,6 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   
-  // Debugging
-  console.log(`🔍 Middleware hit: ${path} | Role: ${request.cookies.get('user_role')?.value || 'No role'}`);
-
   // Public routes
   if (path.startsWith('/login') || 
       path.startsWith('/register') || 
@@ -18,29 +15,26 @@ export function middleware(request: NextRequest) {
   const userId = request.cookies.get('user_id')?.value;
   const userRole = request.cookies.get('user_role')?.value;
 
-  if (!userId) {
-    console.log(`🚫 Not logged in → redirect to /login`);
+  // Not logged in → redirect to login
+  if (!userId || !userRole) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // Role-based blocking
+  // Role-based route protection
   if (userRole === 'EMPLOYEE') {
     if (path === '/tickets' || path.startsWith('/tickets/assigned')) {
-      console.log(`🚫 EMPLOYEE blocked from ${path} → /dashboard`);
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
 
   if (userRole === 'IT_STAFF') {
     if (path === '/tickets' || path.startsWith('/tickets/new')) {
-      console.log(`🚫 IT_STAFF blocked from ${path}`);
       return NextResponse.redirect(new URL('/tickets/assigned', request.url));
     }
   }
 
   if (userRole === 'IT_MANAGER') {
     if (path.startsWith('/tickets/new')) {
-      console.log(`🚫 IT_MANAGER blocked from ${path}`);
       return NextResponse.redirect(new URL('/tickets', request.url));
     }
   }
@@ -48,7 +42,8 @@ export function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// BROADEST MATCHER - Dapat gumana 'to
 export const config = {
-  matcher: '/((?!_next/|api/auth/|favicon.ico|.*\\..*\\..*).*)',
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\..*\\..*).*)',
+  ],
 };

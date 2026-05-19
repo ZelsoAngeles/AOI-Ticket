@@ -1,6 +1,7 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
+import { toast } from "@/components/Toast";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -82,7 +83,6 @@ export default function TicketDetailPage() {
   const [updating, setUpdating] = useState(false);
   const [role, setRole] = useState<string>("");
 
-  // For IT Manager assign
   const [staffList, setStaffList] = useState<StaffUser[]>([]);
   const [selectedStaff, setSelectedStaff] = useState<string>("");
   const [assigning, setAssigning] = useState(false);
@@ -99,42 +99,59 @@ export default function TicketDetailPage() {
         setSelectedStaff(data.assignedTo?.id ?? "");
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        toast.error("Failed to load ticket.");
+        setLoading(false);
+      });
 
-    // Fetch IT Staff list if IT Manager
     if (userRole === "IT_MANAGER") {
       fetch("/api/users/staff")
         .then((r) => r.json())
-        .then((data) => setStaffList(Array.isArray(data) ? data : []));
+        .then((data) => setStaffList(Array.isArray(data) ? data : []))
+        .catch(() => toast.error("Failed to load staff list."));
     }
   }, [params.id]);
 
   async function handleComment() {
     if (!comment.trim()) return;
     setSubmitting(true);
-    const res = await fetch(`/api/tickets/${params.id}/comments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: comment }),
-    });
-    if (res.ok) {
-      const newComment = await res.json();
-      setTicket((prev) => prev ? { ...prev, comments: [...prev.comments, newComment] } : prev);
-      setComment("");
+    try {
+      const res = await fetch(`/api/tickets/${params.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: comment }),
+      });
+      if (res.ok) {
+        const newComment = await res.json();
+        setTicket((prev) => prev ? { ...prev, comments: [...prev.comments, newComment] } : prev);
+        setComment("");
+        toast.success("Comment posted.");
+      } else {
+        toast.error("Failed to post comment.");
+      }
+    } catch {
+      toast.error("Network error. Could not post comment.");
     }
     setSubmitting(false);
   }
 
   async function handleUpdateStatus() {
     setUpdating(true);
-    const res = await fetch(`/api/tickets/${params.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    if (res.ok) {
-      const updated = await res.json();
-      setTicket((prev) => prev ? { ...prev, status: updated.status } : prev);
+    try {
+      const res = await fetch(`/api/tickets/${params.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setTicket((prev) => prev ? { ...prev, status: updated.status } : prev);
+        toast.success(`Status updated to ${statusLabels[updated.status]}.`);
+      } else {
+        toast.error("Failed to update status.");
+      }
+    } catch {
+      toast.error("Network error. Could not update status.");
     }
     setUpdating(false);
   }
@@ -142,16 +159,21 @@ export default function TicketDetailPage() {
   async function handleAssign() {
     if (!selectedStaff) return;
     setAssigning(true);
-    const res = await fetch(`/api/tickets/${params.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ assignedToId: selectedStaff }),
-    });
-    if (res.ok) {
-      const assigned = staffList.find((s) => s.id === selectedStaff);
-      setTicket((prev) =>
-        prev ? { ...prev, assignedTo: assigned ?? null } : prev
-      );
+    try {
+      const res = await fetch(`/api/tickets/${params.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignedToId: selectedStaff }),
+      });
+      if (res.ok) {
+        const assigned = staffList.find((s) => s.id === selectedStaff);
+        setTicket((prev) => prev ? { ...prev, assignedTo: assigned ?? null } : prev);
+        toast.success(`Ticket assigned to ${assigned?.name ?? assigned?.email}.`);
+      } else {
+        toast.error("Failed to assign ticket.");
+      }
+    } catch {
+      toast.error("Network error. Could not assign ticket.");
     }
     setAssigning(false);
   }
@@ -159,7 +181,6 @@ export default function TicketDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F5F5F7]">
-        <Navbar />
         <main className="max-w-4xl mx-auto px-6 py-6">
           <p className="text-sm text-gray-400">Loading ticket...</p>
         </main>
@@ -170,10 +191,9 @@ export default function TicketDetailPage() {
   if (!ticket) {
     return (
       <div className="min-h-screen bg-[#F5F5F7]">
-        <Navbar />
         <main className="max-w-4xl mx-auto px-6 py-6">
           <p className="text-sm text-gray-400">Ticket not found.</p>
-          <Link href="/tickets" className="text-xs text-[#3D2DB5] hover:underline mt-2 block">
+          <Link href="/tickets" className="text-xs text-[rgb(61,45,181)] hover:underline mt-2 block">
             ← Back to tickets
           </Link>
         </main>
@@ -183,14 +203,13 @@ export default function TicketDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F7]">
-      <Navbar />
       <main className="max-w-4xl mx-auto px-6 py-6">
 
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-xs text-gray-400 mb-4">
           <Link
             href={role === "IT_MANAGER" ? "/tickets" : role === "IT_STAFF" ? "/tickets/assigned" : "/tickets/my"}
-            className="hover:text-[#3D2DB5]"
+            className="hover:text-[rgb(61,45,181)]"
           >
             {role === "IT_MANAGER" ? "All Tickets" : role === "IT_STAFF" ? "Assigned Tickets" : "My Tickets"}
           </Link>
@@ -261,12 +280,12 @@ export default function TicketDetailPage() {
                   onChange={(e) => setComment(e.target.value)}
                   placeholder="Add a comment..."
                   rows={3}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#3D2DB5]/20 focus:border-[#3D2DB5] bg-gray-50 text-gray-900 resize-none mb-3"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-[rgb(61,45,181)] bg-gray-50 text-gray-900 resize-none mb-3"
                 />
                 <button
                   onClick={handleComment}
                   disabled={submitting || !comment.trim()}
-                  className="bg-[#3D2DB5] hover:bg-[#2E22A0] text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-40 transition-colors"
+                  className="bg-[rgb(61,45,181)] hover:bg-[#2E22A0] text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-40 transition-colors"
                 >
                   {submitting ? "Posting..." : "Post comment"}
                 </button>
@@ -313,7 +332,7 @@ export default function TicketDetailPage() {
                     <select
                       value={selectedStaff}
                       onChange={(e) => setSelectedStaff(e.target.value)}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3D2DB5]/20 focus:border-[#3D2DB5] bg-gray-50 text-gray-900 mb-2"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-[rgb(61,45,181)] bg-gray-50 text-gray-900 mb-2"
                     >
                       <option value="">— Select staff —</option>
                       {staffList.map((s) => (
@@ -325,7 +344,7 @@ export default function TicketDetailPage() {
                     <button
                       onClick={handleAssign}
                       disabled={assigning || !selectedStaff}
-                      className="w-full bg-[#3D2DB5] hover:bg-[#2E22A0] text-white text-sm font-medium py-2 rounded-lg transition-colors disabled:opacity-40"
+                      className="w-full bg-[rgb(61,45,181)] hover:bg-[#2E22A0] text-white text-sm font-medium py-2 rounded-lg transition-colors disabled:opacity-40"
                     >
                       {assigning ? "Assigning..." : "Assign"}
                     </button>
@@ -343,7 +362,7 @@ export default function TicketDetailPage() {
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3D2DB5]/20 focus:border-[#3D2DB5] bg-gray-50 text-gray-900 mb-2"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-[rgb(61,45,181)] bg-gray-50 text-gray-900 mb-2"
                 >
                   <option value="OPEN">Open</option>
                   <option value="IN_PROGRESS">In Progress</option>
@@ -353,7 +372,7 @@ export default function TicketDetailPage() {
                 <button
                   onClick={handleUpdateStatus}
                   disabled={updating || status === ticket.status}
-                  className="w-full bg-[#3D2DB5] hover:bg-[#2E22A0] text-white text-sm font-medium py-2 rounded-lg transition-colors disabled:opacity-40"
+                  className="w-full bg-[rgb(61,45,181)] hover:bg-[#2E22A0] text-white text-sm font-medium py-2 rounded-lg transition-colors disabled:opacity-40"
                 >
                   {updating ? "Updating..." : "Update"}
                 </button>
